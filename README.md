@@ -34,7 +34,7 @@ catalog, not live search. These limits are visible in the application.
 6. Download the JSON record. Repeating the publish request cannot duplicate
    issues, even when requests arrive concurrently.
 
-A live URL will be added only after the deployed UI and API have been verified.
+**Live demo:** [dg-sprint-ledger.onrender.com](https://dg-sprint-ledger.onrender.com) · [API reference](https://dg-sprint-ledger.onrender.com/docs). Hosted smoke checks verified approval and replay-safe creation of four local issues.
 [render.yaml](render.yaml) provides a free-tier deployment configuration.
 
 ## Run locally
