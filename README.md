@@ -10,6 +10,8 @@ local issues exactly once.
 [Checks](https://github.com/dgexplores/sprint-ledger/actions/workflows/ci.yml) ·
 [Reference analysis](docs/reference-analysis.md)
 
+![Reviewed sprint desk](docs/sprint-desk.png)
+
 ## The 60-second brief
 
 Planning notes mix decisions, ideas and commitments. Automatically turning all
@@ -204,3 +206,7 @@ automation and technical documentation. This project should be paired with an
 actual ML/LLM project when targeting an AI role.
 
 MIT licensed; see [LICENSE](LICENSE).
+
+## Browser verification
+
+The local browser workflow was verified end to end: load example, extract four commitments, edit a completion criterion, approve, and create four local issues. The screenshot records the actual resulting interface; no Jira or email was sent. Hosted verification follows deployment.
