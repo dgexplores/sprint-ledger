@@ -222,7 +222,7 @@ def create_app(db_path=None):
                 raise HTTPException(429, "This demo session has reached its 20-plan limit")
         if payload.engine == "semantic" and llm_configured():
             access_token = os.getenv("SPRINT_LLM_ACCESS_TOKEN", "")
-            if not access_token or not secrets.compare_digest(request.headers.get("x-ai-token", ""), access_token):
+            if not access_token or not secrets.compare_digest(request.headers.get("x-ai-token", "").encode(), access_token.encode()):
                 raise HTTPException(403, "An operator AI access token is required")
         try:
             tasks = extract_proposals(payload.transcript) if payload.engine == "semantic" else extract(payload.transcript)
@@ -288,7 +288,7 @@ def create_app(db_path=None):
         configured_token = os.getenv("SPRINT_JIRA_PUBLISH_TOKEN", "")
         if not jira_configured():
             raise HTTPException(503, "Jira publishing is not configured")
-        if not configured_token or not secrets.compare_digest(token, configured_token):
+        if not configured_token or not secrets.compare_digest(token.encode(), configured_token.encode()):
             raise HTTPException(403, "A server-authorized publish token is required")
         with app.state.lock:
             db = app.state.db
@@ -322,7 +322,7 @@ def create_app(db_path=None):
         token = request.headers.get("x-publish-token", "")
         if not jira_configured():
             raise HTTPException(503, "Jira publishing is not configured")
-        if not secrets.compare_digest(token, os.environ["SPRINT_JIRA_PUBLISH_TOKEN"]):
+        if not secrets.compare_digest(token.encode(), os.environ["SPRINT_JIRA_PUBLISH_TOKEN"].encode()):
             raise HTTPException(403, "A server-authorized publish token is required")
         with app.state.lock:
             get_plan(identifier, request.state.owner)

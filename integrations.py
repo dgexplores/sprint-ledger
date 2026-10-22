@@ -36,7 +36,7 @@ def checked_url(value):
     url = urlsplit(value)
     if url.scheme != "https" and not (url.scheme == "http" and url.hostname in {"localhost", "127.0.0.1"}):
         raise IntegrationError("Integration URL requires HTTPS, except localhost")
-    if url.username or url.password or url.query or url.fragment:
+    if not url.hostname or url.username or url.password or url.query or url.fragment:
         raise IntegrationError("Integration URL must not contain credentials, query or fragment")
     return value.rstrip("/")
 
