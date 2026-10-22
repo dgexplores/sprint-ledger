@@ -1,216 +1,112 @@
 # Sprint Ledger
 
-**Turn explicit commitments into reviewed work—with the source attached.**
+Turn planning notes into source-linked, editable tasks; approve a snapshot before creating local or Jira issues.
 
-Sprint Ledger is a small Python planning application: paste notes, inspect the
-actions it recognizes, edit the fields, approve or reject the draft, then create
-local issues exactly once.
+**Rebuild status:** original Python application, developed with AI assistance. This upgrade is locally tested, not deployed. Provider and Jira boundaries were tested with mock HTTP transports; no live LLM quality evaluation or Jira tenant validation is claimed. Earlier hosted demos do not verify this version.
 
-[Source](https://github.com/dgexplores/sprint-ledger) ·
-[Checks](https://github.com/dgexplores/sprint-ledger/actions/workflows/ci.yml) ·
-[Reference analysis](docs/reference-analysis.md)
+## The problem and workflow
 
-![Reviewed sprint desk](docs/sprint-desk.png)
+Planning notes mix ideas and commitments. A generated task can look convincing while assigning work nobody agreed to do. Sprint Ledger preserves the source line, leaves unsupported metadata blank, requires review, and separates that decision from publication.
 
-## The 60-second brief
+1. Paste fictional notes and choose offline extraction or configured AI extraction.
+2. Inspect each exact source line. Edit titles, owners, dates, priority and completion criteria.
+3. Approve or reject the versioned draft. No issue is created by approval alone.
+4. Create local issues, or explicitly confirm Jira export with an operator publish token.
+5. Inspect the saved issues and decision history. Download the JSON record.
 
-Planning notes mix decisions, ideas and commitments. Automatically turning all
-of them into tickets creates work nobody agreed to do. This application uses a
-narrow, inspectable extraction rule and preserves an explicit review boundary.
-Every task shows the original source line, and missing details remain unknown
-until a person supplies them.
+## What is implemented
 
-**Current mode is an explicit-action parser, not an LLM.** It creates issues in
-its own SQLite ledger, not Jira. Documentation links use a small keyword
-catalog, not live search. These limits are visible in the application.
+| Capability | Behavior |
+|---|---|
+| Offline extraction | Recognizes explicit actions, commitments and action-list syntax; no external calls |
+| Optional AI extraction | OpenAI-compatible chat API extracts proposals from unstructured notes |
+| Evidence checks | Every proposal must cite a valid line and its entire exact source text |
+| Unknown metadata | Owners, dates and priorities absent from that quote are blank/unknown; reviewed calendar dates are validated |
+| Human review | Editable fields, preserved source evidence, version checks, approve/reject before publication |
+| Local publishing | SQLite transaction and unique task constraint make replay duplicate-safe |
+| Optional Jira Cloud adapter | Calls the real REST v3 issue endpoint; credentials, target project and issue type are server-controlled |
+| External write boundary | Approval, exact plan version, explicit write confirmation, session ownership and operator token required |
+| Uncertain delivery | Persisted intent before POST; failed/crashed requests block automatic retry instead of risking a duplicate |
+| Reconciliation | An operator can link an existing issue only after checking its exact export marker through Jira |
 
-### Try the complete workflow
-
-1. Start the application and click **Load example**.
-2. Click **Find commitments**. Four tasks appear with exact source quotes.
-3. Check titles and owners, select priorities, and write completion criteria.
-4. Click **Approve reviewed tasks**. No issues have been created yet.
-5. Click **Create local issues**. The issue ledger and decision history update.
-6. Download the JSON record. Repeating the publish request cannot duplicate
-   issues, even when requests arrive concurrently.
-
-**Live demo:** [dg-sprint-ledger.onrender.com](https://dg-sprint-ledger.onrender.com) · [API reference](https://dg-sprint-ledger.onrender.com/docs). Hosted smoke checks verified approval and replay-safe creation of four local issues.
-[render.yaml](render.yaml) provides a free-tier deployment configuration.
+Documentation references in offline mode come from a small local keyword catalog, not live Microsoft Learn retrieval. AI proposals currently have no automatically retrieved reference links. There is no MCP or email integration.
 
 ## Run locally
 
-Python 3.12 is the tested runtime. No provider keys or external accounts needed.
+Python 3.12 is the tested runtime. The default workflow requires no external accounts.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-uvicorn app:app --host 127.0.0.1 --port 8000
+uv venv --python 3.12 .venv
+uv pip install --python .venv/bin/python -r requirements-dev.txt
+.venv/bin/uvicorn app:app --host 127.0.0.1 --port 8000
 ```
 
-Open **http://127.0.0.1:8000** for the workspace,
-**http://127.0.0.1:8000/docs** for the API, and
-**http://127.0.0.1:8000/healthz** for the disclosed runtime mode.
+Open `http://127.0.0.1:8000`, `/docs` for API contracts, and `/healthz` for configured capabilities. Set `SPRINT_DB` to an application-owned SQLite path for persistence; the default is `/tmp/sprint-ledger.sqlite`. Deploy with one worker. The process lock coordinates one SQLite connection, not a distributed worker fleet.
 
-Use fictional notes in the public demo. The default database path is
-`/tmp/sprint-ledger.sqlite`; set `SPRINT_DB` to an application-owned persistent
-path for local persistence. Records survive process restart while that file
-and the browser-session cookie remain available. Free-hosting storage can be
-reset by the host and is not a durable production database.
+### Optional AI extraction
 
-### Supported input
+Set these environment variables on the server, then restart:
 
 ```text
-Asha: I will add request validation to the FastAPI endpoint. Due: 2026-11-05
-Action: Write SQL regression tests | Owner: Kabir | Priority: high
-TODO: Document rollback steps
-- [ ] Review the Docker build guide. Owner: Meera
+SPRINT_LLM_API_KEY=<provider key>
+SPRINT_LLM_MODEL=<model identifier>
+SPRINT_LLM_BASE_URL=https://api.openai.com/v1
 ```
 
-Recognizes `Name: I will …`, `Name: I'll …`, `Action: …`, `TODO: …`, and
-unchecked list items. `Owner:`, `Due:` and `Priority:` supply explicit metadata.
-Dates use `YYYY-MM-DD`. Invalid source dates remain blank for review; invalid
-reviewed dates are rejected. High/medium/low priorities are recognized; other
-values become unknown.
+`BASE_URL` is optional. HTTPS is required except localhost. In the UI choose configured AI, or send `engine: "semantic"` to `POST /api/plans`. The default is `engine: "explicit"`.
 
-General conversation such as “we should discuss the roadmap” creates no task.
-An input with no recognized actions returns an explanatory error rather than
-inventing a meeting-summary task. Maximum 12 tasks, 20,000 transcript characters,
-50 KB request body, and 20 plans per browser session.
+Selecting AI sends notes to the configured provider and can incur charges. Keys stay on the server. Malformed responses, invalid quotes and dates fail before draft persistence. Valid source quotes do not prove a model's paraphrased task is semantically correct; a human must inspect it. No real-model accuracy, productivity saving or comparison with SprintForge has been measured.
+
+### Optional Jira publishing
+
+```text
+SPRINT_JIRA_URL=https://your-company.atlassian.net
+SPRINT_JIRA_EMAIL=<service account email>
+SPRINT_JIRA_API_TOKEN=<Jira API token>
+SPRINT_JIRA_PROJECT=<project key>
+SPRINT_JIRA_ISSUE_TYPE=Task
+SPRINT_JIRA_PUBLISH_TOKEN=<long random operator secret>
+```
+
+The issue type is optional. Use a narrowly permissioned account. Set `COOKIE_SECURE=true` behind HTTPS. Do not expose the operator secret to general public-demo users. Session cookies isolate records but are not enterprise authentication or role management. Production deployment still requires authenticated users, authorization and rate limits.
+
+After approval, enter the operator secret in the password field, click Jira creation and confirm the external action. The secret is cleared after the request and is not saved in localStorage. Approved task text and source quotes are sent to the configured Jira project. Owner labels appear in the description; they are not mapped to Jira account IDs. Priority values are retained in the approved plan but are not mapped to tenant-specific Jira priority IDs.
+
+For each `(plan, task)` the server commits an export marker and `inflight` state **before** contacting Jira. A successful response saves the issue key. Replays reuse recorded issues. Timeout, provider failure, malformed response or a process crash leaves the task uncertain/inflight and blocks another POST. This prioritizes avoiding duplicates over automatic recovery; it is not a claim of distributed exactly-once delivery.
+
+If Jira did create the issue, find it using the displayed `sprint-ledger-…` label. Call `POST /api/plans/{id}/reconcile/jira` with `{ "task_id": "…", "issue_key": "PROJECT-123" }`, the same browser session, and `X-Publish-Token`. The adapter reads that Jira issue and verifies the exact marker before recording it as created. If no issue exists, automatic retry remains blocked; an operator must investigate before changing the durable record. There is no automated unsafe reset.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  Notes[Planning notes] --> Parser[Explicit-action parser]
-  Parser --> Draft[Source-linked editable draft]
-  Draft --> Review{Human decision}
-  Review -->|reject| Rejected[Rejected record]
-  Review -->|approve| Approved[Approved snapshot]
-  Approved --> Publish[Separate publish request]
-  Publish --> SQL[(Atomic SQLite issue ledger)]
-  SQL --> Export[JSON export and decision history]
+  Notes[Planning notes] --> Extract[Offline parser or configured LLM]
+  Extract --> Evidence[Validate schema and source lines]
+  Evidence --> Draft[Editable draft]
+  Draft --> Review[Versioned human approval]
+  Review --> Local[Atomic local issue ledger]
+  Review --> Intent[Persist Jira export intent]
+  Intent --> Jira[Jira REST API]
+  Jira --> Result[Created issue or uncertain state]
+  Result --> Reconcile[Verify marker before reconciliation]
 ```
-
-### Decisions an interviewer can inspect
-
-**Why retain the source after editing?** An edited title is a reviewer decision;
-its original quote remains separate evidence. The server ignores attempts to
-replace a task's source quote through the review payload.
-
-**Why approval and publishing are separate?** A person can approve the proposed
-scope without immediately creating issues. Rejected and unapproved plans cannot
-be published. A stale review is refused by version/state checks.
-
-**How do retries avoid duplicate issues?** Publishing runs in a SQLite
-`BEGIN IMMEDIATE` transaction. Issues have a unique `(plan, task_id)` constraint.
-The plan becomes published and its event is recorded within that transaction.
-Retries with the same or a different idempotency key return the existing issue
-set. Keys are scoped to a plan, not globally across the application.
-
-**How are demo records isolated?** A random HTTP-only SameSite browser cookie
-identifies a demo session. The server hashes it and checks ownership on reads,
-review and publish. Set `COOKIE_SECURE=true` behind HTTPS, as the Render
-Blueprint does. A session is not an authenticated person or role system.
-
-**Why no autonomous Jira/email calls?** This implementation demonstrates the
-review and execution boundary without granting a public demo external write
-credentials. External delivery would need a separate authenticated integration,
-reviewable target selection and reconciliation after uncertain delivery.
-
-**Why a parser?** A reproducible baseline is useful for testing workflow safety.
-Its limited syntax is an explicit product constraint. It does not demonstrate
-general semantic understanding or claim LLM/agent capability. A future model
-extractor must preserve the same schema, evidence and approval boundary and be
-evaluated separately.
 
 ## Verification
 
 ```bash
-python -m pytest -q
+.venv/bin/python -m pytest -q
 node --check static/app.js
 ```
 
-On 22 October 2026, **10 tests passed** in the local development runtime. They
-exercise evidence preservation, metadata parsing, valid calendar dates, unknown
-fields, invalid review atomicity, stale reviews, rejection, request limits,
-cross-origin refusal, cross-session access, restart persistence, and a four-way
-concurrent publish race. The race produces one set of four issues and one
-publication event. These are workflow checks, not a model-quality benchmark.
+Twenty local tests pass at this rebuild checkpoint. Tests cover the original parsing/review/session/concurrent local publishing workflow plus source-grounded AI proposals, invented metadata removal, bad evidence rejection, unconfigured mode, the Jira REST request contract, approval/token enforcement, replay, uncertain delivery across application restart and marker-checked reconciliation. Provider tests use mocks; they do not establish real-world extraction quality or live cloud compatibility.
 
-CI installs pinned direct dependencies, reruns tests and builds the Docker
-image. CI/deployment status should be checked at the linked workflow; local
-success is not a claim that a remote build has passed.
+## Recruiter discussion
 
-## API workflow
+- Why preserve evidence after editing? A title becomes a reviewer decision while its original source remains auditable.
+- Why separate approval from publishing? Reviewing proposed work should not silently create external issues.
+- Why not retry Jira blindly? A timeout can occur after the issue was created. A durable intent record and reconciliation avoid a second automatic POST.
+- What remains unfinished? Live-provider evaluation, tenant-specific Jira validation, automatic assignment, multi-tenant identity, live documentation retrieval, email/transcript ingestion and a production deployment.
 
-| Method and path | Purpose |
-| --- | --- |
-| `GET /api/sample` | Fictional example notes |
-| `POST /api/plans` | Extract an editable draft |
-| `GET /api/plans/{id}` | Read your session's plan, issues and events |
-| `POST /api/plans/{id}/review` | Explicit approve/reject with version and edited tasks |
-| `POST /api/plans/{id}/publish` | Idempotent local issue creation after approval |
-| `GET /healthz` | Runtime mode and external-write status |
+## Attribution
 
-Use the same cookie jar across API requests; otherwise the next request belongs
-to a different browser session. Draft exports include current browser edits and
-are labelled unapproved/unsaved. Approved exports reflect the saved snapshot.
-
-## Deploy
-
-```bash
-docker build -t sprint-ledger .
-docker run --rm -p 8000:8000 sprint-ledger
-```
-
-The Docker process runs as an unprivileged user and accepts `$PORT`. The Render
-Blueprint starts a single worker with `/healthz` as its health check and secure
-cookies enabled. Free services can sleep, so a cold start may take time.
-
-The single-process lock protects the shared SQLite connection; transaction and
-unique constraints protect publishing in the database. This configuration is
-not a horizontally scaled service. Production use needs authenticated users,
-roles, retention controls, backups, a durable database and operational limits.
-
-## Repository map
-
-| Path | Responsibility |
-| --- | --- |
-| `app.py` | Parser, validation, session boundary, state transitions and SQL ledger |
-| `static/` | Notes workspace, editable review cards, source evidence and JSON export |
-| `tests/test_workflow.py` | Happy paths, failures, persistence and concurrent replay |
-| `docs/reference-analysis.md` | Observed SprintForge configuration and design differences |
-| `render.yaml`, `Dockerfile` | Reproducible deployment configuration |
-
-## Origin, contribution and limitations
-
-This is an original implementation for Deepak Gangwar's portfolio, developed
-with AI assistance. It was inspired by SprintForge, by Shrushti Shah and Bhushan
-Gawale, whose managed solution connects Copilot Studio to Microsoft Learn and
-Jira. The [source study](docs/reference-analysis.md) records the inspected commit
-and archive members. No upstream code, prompts, tenant configuration or media
-were copied, and the original team's award and claimed time savings are not
-claimed here.
-
-The new contribution is source-linked deterministic extraction, editable
-unknown fields, explicit review, local SQL state, version checks, duplicate-safe
-publishing, session isolation and a browser workflow. There is no LLM inference,
-MCP connection, Jira delivery, live documentation retrieval, email ingestion,
-PDF parsing, transcript recording, hierarchy inference or measured productivity
-saving in this version. Original source configuration was inspected but not run.
-
-**Relevant skills:** Python, structured text processing, REST APIs, SQL,
-validation, transactions, concurrency, testing, debugging, Git, CI, SDLC,
-automation and technical documentation. This project should be paired with an
-actual ML/LLM project when targeting an AI role.
-
-MIT licensed; see [LICENSE](LICENSE).
-
-## Browser verification
-
-The local browser workflow was verified end to end: load example, extract four commitments, edit a completion criterion, approve, and create four local issues. The screenshot records the actual resulting interface; no Jira or email was sent. Hosted verification follows deployment.
-
-## Original project study
-
-See the [upstream project study](docs/upstream-study.md) for the original architecture, authorship, setup requirements and limitations. It describes a separate upstream reference, not this repository’s deployed application.
+Inspired by [SprintForge](https://github.com/Shrusti13/sprint-forge), by Shrushti Shah and Bhushan Gawale. This Python application is independently implemented; upstream solution code, prompts and media were not copied. Their hackathon award and reported time savings are not claimed here. See [reference analysis](docs/reference-analysis.md). AI assistance was used for implementation and documentation. MIT licence: [LICENSE](LICENSE).

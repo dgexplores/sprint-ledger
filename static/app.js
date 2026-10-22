@@ -5,8 +5,8 @@ function node(tag, text) {
   if (text !== undefined) element.textContent = text;
   return element;
 }
-async function api(path, body) {
-  const response = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)} : {});
+async function api(path, body, headers = {}) {
+  const response = await fetch(path, body ? {method: 'POST', headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify(body)} : {});
   const data = await response.json();
   if (!response.ok) throw Error(typeof data.detail === 'string' ? data.detail : 'Check task titles, owners and valid calendar dates, then try again.');
   return data;
@@ -44,9 +44,15 @@ function show(value) {
   $('#actions').hidden = false;
   $('#approve').hidden = $('#reject').hidden = value.state !== 'draft';
   $('#publish').hidden = value.state !== 'approved';
+  $('#publish-jira').hidden = !['approved', 'published'].includes(value.state);
   $('#history').replaceChildren();
   for (const event of value.events) $('#history').append(node('li', `${event.action.replaceAll('_', ' ')} · ${event.details}`));
   $('#issues').replaceChildren();
+  for (const issue of value.jira_exports || []) {
+    const line = node('p', `Jira ${issue.state}: ${issue.issue_key || issue.marker}`);
+    if (issue.issue_url) { const link = node('a', 'Open issue ↗'); link.href = issue.issue_url; link.target = '_blank'; link.rel = 'noopener noreferrer'; line.append(link); }
+    $('#issues').append(line);
+  }
   for (const issue of value.issues) {
     const card = node('div', `LOCAL-${issue.id} · ${issue.title} · ${issue.owner || 'Unassigned'} · ${issue.priority || 'unknown'} priority`);
     card.className = 'issue'; $('#issues').append(card);
@@ -64,7 +70,7 @@ $('#sample').onclick = () => busy(async () => {
   $('#status').textContent = 'Example loaded. Find its explicit commitments.';
 });
 $('#extract').onclick = () => busy(async () => {
-  const value = await api('/api/plans', {transcript: $('#transcript').value}); show(value);
+  const value = await api('/api/plans', {transcript: $('#transcript').value, engine: $('#engine').value}); show(value);
   $('#status').textContent = `${value.tasks.length} actions found. Check titles, owners, dates, priorities and completion criteria.`;
 });
 function edited() {
@@ -89,3 +95,12 @@ $('#download').onclick = () => {
   const url = URL.createObjectURL(blob), link = node('a'); link.href = url;
   link.download = 'sprint-plan.json'; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
+
+$('#publish-jira').onclick = () => busy(async () => {
+  if (!confirm('Send the approved tasks and source lines to the configured Jira project? This creates external issues.')) return;
+  const token = $('#publish-token').value;
+  try {
+    show(await api(`/api/plans/${plan.id}/publish/jira`, {expected_version: plan.version, confirm_external_write: true}, {'X-Publish-Token': token}));
+    $('#status').textContent = 'Jira export complete. Existing recorded issues were reused.';
+  } finally { $('#publish-token').value = ''; }
+});
