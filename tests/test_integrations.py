@@ -1,9 +1,11 @@
 import json
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+
 import app as application
-from integrations import IntegrationError, extract_proposals, create_jira_issue
+from integrations import IntegrationError, create_jira_issue, extract_proposals
 
 
 def llm(monkeypatch, tasks):

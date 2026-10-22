@@ -1,14 +1,14 @@
 """Source-linked sprint planning with explicit review and atomic local publishing."""
-from contextlib import asynccontextmanager
-from datetime import date
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import secrets
 import sqlite3
 import threading
+from contextlib import asynccontextmanager
+from datetime import date
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -16,7 +16,15 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from integrations import IntegrationError, extract_proposals, llm_configured, jira_configured, create_jira_issue, verify_jira_issue
+
+from integrations import (
+    IntegrationError,
+    create_jira_issue,
+    extract_proposals,
+    jira_configured,
+    llm_configured,
+    verify_jira_issue,
+)
 
 ROOT = Path(__file__).resolve().parent
 SAMPLE = """Sprint planning — sample team, fictional discussion
@@ -42,15 +50,15 @@ def extract(transcript):
         if not line:
             continue
         owner, title = None, None
-        speech = re.match(r"^([\w -]{1,45}):\s*(?:I\s+will|I'll)\s+(.+)$", line, re.I)
-        action = re.match(r"^(?:action\s*:|todo\s*:|[-*]\s*\[\s*\])\s*(.+)$", line, re.I)
+        speech = re.match(r"^([\w -]{1,45}):\s*(?:I\s+will|I'll)\s+(.+)$", line, re.IGNORECASE)
+        action = re.match(r"^(?:action\s*:|todo\s*:|[-*]\s*\[\s*\])\s*(.+)$", line, re.IGNORECASE)
         if speech:
             owner, title = speech.group(1).strip(), speech.group(2)
         elif action:
             title = action.group(1)
         if not title:
             continue
-        metadata = list(re.finditer(r"\b(Owner|Due|Priority)\s*:\s*", title, re.I))
+        metadata = list(re.finditer(r"\b(Owner|Due|Priority)\s*:\s*", title, re.IGNORECASE))
         fields = {}
         for index, match in enumerate(metadata):
             end = metadata[index + 1].start() if index + 1 < len(metadata) else len(title)
@@ -67,7 +75,7 @@ def extract(transcript):
         title = title[:metadata[0].start()].strip(" .;|") if metadata else title.strip(" .;|")
         if len(title) < 4:
             continue
-        refs = [{"title": text, "url": url} for word, (text, url) in REFERENCES.items() if re.search(r"\b"+word+r"\b", title, re.I)]
+        refs = [{"title": text, "url": url} for word, (text, url) in REFERENCES.items() if re.search(r"\b"+word+r"\b", title, re.IGNORECASE)]
         tasks.append({"id": hashlib.sha256(f"{number}:{line}".encode()).hexdigest()[:12], "title": title[:240], "owner": (owner or "")[:60], "due_date": due, "priority": priority, "source_line": number, "source_quote": original, "references": refs, "acceptance": ""})
         if len(tasks) == 12:
             break
