@@ -2,7 +2,7 @@
 
 Turn planning notes into source-linked, editable tasks; approve a snapshot before creating local or Jira issues.
 
-**Rebuild status:** original Python application, developed with AI assistance. This upgrade is locally tested, not deployed. Provider and Jira boundaries were tested with mock HTTP transports; no live LLM quality evaluation or Jira tenant validation is claimed. Earlier hosted demos do not verify this version.
+**Rebuild status:** original Python application, developed with AI assistance. This upgrade includes an offline hosted workflow and optional configured integrations. Provider and Jira boundaries were tested with mock HTTP transports; no live LLM quality evaluation or Jira tenant validation is claimed. Use the current source and release verification for this version.
 
 ## The problem and workflow
 
@@ -111,3 +111,7 @@ Twenty-two local tests pass at this rebuild checkpoint. Tests cover the original
 ## Attribution
 
 Inspired by [SprintForge](https://github.com/Shrusti13/sprint-forge), by Shrushti Shah and Bhushan Gawale. This Python application is independently implemented; upstream solution code, prompts and media were not copied. Their hackathon award and reported time savings are not claimed here. See [reference analysis](docs/reference-analysis.md). AI assistance was used for implementation and documentation. MIT licence: [LICENSE](LICENSE).
+
+## Demo and interview walkthrough
+
+[Open the demo](https://dg-sprint-ledger.onrender.com) · [Five-minute walkthrough](docs/DEMO.md). Free hosting can sleep; instance-local demo records may reset. External-provider and Jira modes are disabled unless configured and authorized.
