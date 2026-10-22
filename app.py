@@ -201,7 +201,7 @@ def create_app(db_path=None):
 
     @app.get("/healthz")
     def health():
-        return {"status":"ok", "engine":"explicit-action-parser.v1", "llm_enabled":llm_configured(), "external_writes":jira_configured(), "jira_requires_publish_token":True}
+        return {"status":"ok", "engine":"explicit-action-parser.v1", "llm_enabled":bool(llm_configured() and os.getenv("SPRINT_LLM_ACCESS_TOKEN")), "external_writes":jira_configured(), "jira_requires_publish_token":True}
 
     @app.get("/api/sample")
     def sample():
@@ -209,6 +209,13 @@ def create_app(db_path=None):
 
     @app.post("/api/plans", status_code=201)
     def create(payload: Draft, request: Request):
+        with app.state.lock:
+            if app.state.db.execute("SELECT COUNT(*) FROM plans WHERE owner=?", (request.state.owner,)).fetchone()[0] >= 20:
+                raise HTTPException(429, "This demo session has reached its 20-plan limit")
+        if payload.engine == "semantic" and llm_configured():
+            access_token = os.getenv("SPRINT_LLM_ACCESS_TOKEN", "")
+            if not access_token or not secrets.compare_digest(request.headers.get("x-ai-token", ""), access_token):
+                raise HTTPException(403, "An operator AI access token is required")
         try:
             tasks = extract_proposals(payload.transcript) if payload.engine == "semantic" else extract(payload.transcript)
             for task in tasks:

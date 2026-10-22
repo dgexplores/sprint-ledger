@@ -117,7 +117,8 @@ def verify_jira_issue(issue_key, marker, transport=None):
             response = client.get(base + "/rest/api/3/issue/" + issue_key, params={"fields": "labels"},
                 auth=(os.environ["SPRINT_JIRA_EMAIL"], os.environ["SPRINT_JIRA_API_TOKEN"]))
             response.raise_for_status()
-            if marker not in response.json()["fields"]["labels"]:
+            labels = response.json()["fields"]["labels"]
+            if not isinstance(labels, list) or not all(isinstance(label, str) for label in labels) or marker not in labels:
                 raise IntegrationError("Issue does not carry this task's export marker")
     except (httpx.HTTPError, ValueError, KeyError, TypeError) as error:
         raise IntegrationError("Existing Jira issue could not be verified; export remains blocked") from error

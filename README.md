@@ -50,10 +50,11 @@ Set these environment variables on the server, then restart:
 ```text
 SPRINT_LLM_API_KEY=<provider key>
 SPRINT_LLM_MODEL=<model identifier>
+SPRINT_LLM_ACCESS_TOKEN=<long random operator secret>
 SPRINT_LLM_BASE_URL=https://api.openai.com/v1
 ```
 
-`BASE_URL` is optional. HTTPS is required except localhost. In the UI choose configured AI, or send `engine: "semantic"` to `POST /api/plans`. The default is `engine: "explicit"`.
+`BASE_URL` is optional. HTTPS is required except localhost. In the UI enter the AI operator token and choose configured AI. The token is cleared after each extraction and is not stored. API callers must supply `X-AI-Token`; unauthorized requests are rejected before any provider call. Send `engine: "semantic"` to `POST /api/plans`. The default is `engine: "explicit"`.
 
 Selecting AI sends notes to the configured provider and can incur charges. Keys stay on the server. Malformed responses, invalid quotes and dates fail before draft persistence. Valid source quotes do not prove a model's paraphrased task is semantically correct; a human must inspect it. No real-model accuracy, productivity saving or comparison with SprintForge has been measured.
 
@@ -98,7 +99,7 @@ flowchart LR
 node --check static/app.js
 ```
 
-Twenty local tests pass at this rebuild checkpoint. Tests cover the original parsing/review/session/concurrent local publishing workflow plus source-grounded AI proposals, invented metadata removal, bad evidence rejection, unconfigured mode, the Jira REST request contract, approval/token enforcement, replay, uncertain delivery across application restart and marker-checked reconciliation. Provider tests use mocks; they do not establish real-world extraction quality or live cloud compatibility.
+Twenty-two local tests pass at this rebuild checkpoint. Tests cover the original parsing/review/session/concurrent local publishing workflow plus source-grounded AI proposals, invented metadata removal, bad evidence rejection, unconfigured mode, the Jira REST request contract, approval/token enforcement, replay, uncertain delivery across application restart and marker-checked reconciliation. Provider tests use mocks; they do not establish real-world extraction quality or live cloud compatibility.
 
 ## Recruiter discussion
 

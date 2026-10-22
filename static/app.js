@@ -70,7 +70,10 @@ $('#sample').onclick = () => busy(async () => {
   $('#status').textContent = 'Example loaded. Find its explicit commitments.';
 });
 $('#extract').onclick = () => busy(async () => {
-  const value = await api('/api/plans', {transcript: $('#transcript').value, engine: $('#engine').value}); show(value);
+  let value;
+  try { value = await api('/api/plans', {transcript: $('#transcript').value, engine: $('#engine').value}, {'X-AI-Token': $('#ai-token').value}); }
+  finally { $('#ai-token').value = ''; }
+  show(value);
   $('#status').textContent = `${value.tasks.length} actions found. Check titles, owners, dates, priorities and completion criteria.`;
 });
 function edited() {

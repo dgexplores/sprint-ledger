@@ -105,3 +105,27 @@ def test_existing_issue_marker_is_checked(monkeypatch):
     jira_env(monkeypatch)
     transport=httpx.MockTransport(lambda request:httpx.Response(200,json={'fields':{'labels':['other-marker']}}))
     with pytest.raises(IntegrationError):verify_jira_issue('TEST-1','expected-marker',transport)
+
+
+def test_ai_operator_token_blocks_provider_before_call(monkeypatch,tmp_path):
+    monkeypatch.setenv('SPRINT_LLM_API_KEY','test-key')
+    monkeypatch.setenv('SPRINT_LLM_MODEL','test-model')
+    monkeypatch.setenv('SPRINT_LLM_ACCESS_TOKEN','operator-secret')
+    calls=[]
+    monkeypatch.setattr(application,'extract_proposals',lambda *args:calls.append(args))
+    with TestClient(application.create_app(tmp_path/'plans.db')) as client:
+        payload={'transcript':'Some unstructured notes on validation','engine':'semantic'}
+        assert client.post('/api/plans',json=payload).status_code==403
+        assert client.post('/api/plans',json=payload,headers={'X-AI-Token':'wrong'}).status_code==403
+        assert not calls
+
+
+def test_authorized_ai_proposals_are_drafts_not_issues(monkeypatch,tmp_path):
+    line='We need input validation.'
+    result=extract_proposals(line,llm(monkeypatch,[{'title':'Add input validation','source_line':1,'source_quote':line}]))
+    monkeypatch.setenv('SPRINT_LLM_ACCESS_TOKEN','operator-secret')
+    monkeypatch.setattr(application,'extract_proposals',lambda *args:result)
+    with TestClient(application.create_app(tmp_path/'plans.db')) as client:
+        response=client.post('/api/plans',json={'transcript':line,'engine':'semantic'},headers={'X-AI-Token':'operator-secret'})
+        assert response.status_code==201
+        assert response.json()['state']=='draft' and response.json()['issues']==[] and response.json()['jira_exports']==[]
