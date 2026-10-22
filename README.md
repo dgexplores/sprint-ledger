@@ -210,3 +210,7 @@ MIT licensed; see [LICENSE](LICENSE).
 ## Browser verification
 
 The local browser workflow was verified end to end: load example, extract four commitments, edit a completion criterion, approve, and create four local issues. The screenshot records the actual resulting interface; no Jira or email was sent. Hosted verification follows deployment.
+
+## Original project study
+
+See the [upstream project study](docs/upstream-study.md) for the original architecture, authorship, setup requirements and limitations. It describes a separate upstream reference, not this repository’s deployed application.
